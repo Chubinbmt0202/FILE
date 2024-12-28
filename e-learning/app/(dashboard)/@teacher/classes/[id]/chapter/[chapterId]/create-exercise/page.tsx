@@ -19,12 +19,14 @@ interface Question {
   content: string;
   options?: string[];
   correctOption?: number | null;
+  points: number;
 }
 
 export default function CreateExercisePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [dueDate, setDueDate] = useState('');
 
   const [step, setStep] = useState<'name' | 'type' | 'questions'>('name');
   const [exerciseName, setExerciseName] = useState('');
@@ -34,12 +36,20 @@ export default function CreateExercisePage() {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
   const [idKhoaHoc, setIdKhoaHoc] = useState<string | null>(null);
 
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    setSelectedFile(file);
+    // Thêm logic xử lý file tại đây, ví dụ: đọc file và thêm các câu hỏi từ file
+  };
+
   useEffect(() => {
     // Lấy các tham số từ URL
     const searchParams = new URLSearchParams(window.location.search);
     const idKhoaHoc = searchParams.get('idKhoaHoc');
 
-    console.log("Params in create-exercise:", params); 
+    console.log("Params in create-exercise:", params);
     console.log("idKhoaHoc from searchParams:", idKhoaHoc);
 
     setIdKhoaHoc(idKhoaHoc);
@@ -47,13 +57,14 @@ export default function CreateExercisePage() {
 
   const handleCreateQuestion = () => {
     if (!selectedType) return;
-    
+
     const newQuestion: Question = {
       id: Date.now().toString(),
       type: selectedType,
       content: '',
       options: selectedType === 'multiple_choice' ? ['', ''] : undefined,
-      correctOption: selectedType === 'multiple_choice' ? null : undefined
+      correctOption: selectedType === 'multiple_choice' ? null : undefined,
+      points: 0 // Initialize points to 0
     };
     setCurrentQuestion(newQuestion);
     setStep('questions');
@@ -80,7 +91,7 @@ export default function CreateExercisePage() {
     }
 
     if (isEditing) {
-      setQuestions(questions.map(q => 
+      setQuestions(questions.map(q =>
         q.id === currentQuestion.id ? currentQuestion : q
       ));
     } else {
@@ -92,7 +103,7 @@ export default function CreateExercisePage() {
   };
 
   const handleEditQuestion = (question: Question) => {
-    setCurrentQuestion({...question});
+    setCurrentQuestion({ ...question });
     setIsEditing(true);
     setStep('questions');
   };
@@ -103,7 +114,7 @@ export default function CreateExercisePage() {
 
   const handleOptionChange = (index: number, value: string) => {
     if (!currentQuestion || !currentQuestion.options) return;
-    
+
     const newOptions = [...currentQuestion.options];
     newOptions[index] = value;
     setCurrentQuestion({ ...currentQuestion, options: newOptions });
@@ -111,7 +122,7 @@ export default function CreateExercisePage() {
 
   const handleAddOption = () => {
     if (!currentQuestion || !currentQuestion.options) return;
-    
+
     setCurrentQuestion({
       ...currentQuestion,
       options: [...currentQuestion.options, '']
@@ -120,12 +131,12 @@ export default function CreateExercisePage() {
 
   const handleRemoveOption = (index: number) => {
     if (!currentQuestion || !currentQuestion.options) return;
-    
+
     const newOptions = currentQuestion.options.filter((_, i) => i !== index);
-    const newCorrectOption = currentQuestion.correctOption === index 
-      ? null 
-      : currentQuestion.correctOption! > index 
-        ? currentQuestion.correctOption! - 1 
+    const newCorrectOption = currentQuestion.correctOption === index
+      ? null
+      : currentQuestion.correctOption! > index
+        ? currentQuestion.correctOption! - 1
         : currentQuestion.correctOption;
 
     setCurrentQuestion({
@@ -135,20 +146,44 @@ export default function CreateExercisePage() {
     });
   };
 
+  const handlePointsChange = (points: number) => {
+    if (!currentQuestion) return;
+    setCurrentQuestion({ ...currentQuestion, points });
+  };
+
+  const logExerciseData = (exerciseData) => {
+    console.log('Tên bài tập:', exerciseData.name);
+    console.log('ID khóa học:', exerciseData.idKhoaHoc);
+    console.log('ID lớp:', exerciseData.idLop);
+    console.log('Ngày nộp bài:', dueDate);
+    console.log('Số lượng câu hỏi:', exerciseData.questions.length);
+    exerciseData.questions.forEach((q, index) => {
+      console.log(`Câu hỏi ${index + 1}:`, q.content);
+      if (q.options) {
+        console.log('Các lựa chọn:', q.options);
+        console.log('Đáp án đúng:', q.correctOption !== null ? q.options[q.correctOption] : 'Chưa chọn');
+      }
+      console.log('Điểm:', q.points);
+    });
+  };
+
   const handleCompleteExercise = async () => {
     const exerciseData = {
       name: exerciseName,
       idKhoaHoc: idKhoaHoc, // Sử dụng idKhoaHoc từ state
+      ngayNopBai: dueDate,
       idLop: params.chapterId,
       questions: questions.map(q => ({
         content: q.content,
         type: q.type,
         options: q.options,
-        correctOption: q.correctOption
+        correctOption: q.correctOption,
+        points: q.points
       }))
     };
-    console.log('Exercise Data:', exerciseData);
-    
+
+    logExerciseData(exerciseData);
+
     try {
       const response = await fetch('http://localhost:5000/api/createExcercise', {
         method: 'POST',
@@ -159,6 +194,7 @@ export default function CreateExercisePage() {
       });
 
       const result = await response.json();
+      console.log("Dữ liệu lấy thông tin câu hỏi", result);
 
       if (response.ok) {
         console.log("Exercise created successfully:", result);
@@ -245,12 +281,20 @@ export default function CreateExercisePage() {
                     {selectedType === 'multiple_choice' ? 'Trắc nghiệm' : 'Tự luận'}
                   </span>
                 </div>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={handleCreateQuestion}
-                >
-                  Thêm câu hỏi
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleCreateQuestion}
+                  >
+                    Thêm câu hỏi
+                  </button>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="btn btn-ghost btn-sm"
+                    onChange={handleFileUpload}
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -287,7 +331,19 @@ export default function CreateExercisePage() {
       {step === 'questions' && currentQuestion && (
         <div className="space-y-6">
           <div className="card bg-base-100 border p-6">
-            <h3 className="text-lg font-medium mb-4">Nội dung câu hỏi</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium mb-4">Nội dung câu hỏi</h3>
+              <div className="flex items-center">
+                <label className="mr-2">Điểm:</label>
+                <input
+                  type="number"
+                  className="input input-bordered w-20"
+                  placeholder="Điểm"
+                  value={currentQuestion.points}
+                  onChange={(e) => handlePointsChange(Number(e.target.value))}
+                />
+              </div>
+            </div>
             <ReactQuill
               theme="snow"
               value={currentQuestion.content}
@@ -347,7 +403,7 @@ export default function CreateExercisePage() {
             >
               Huỷ
             </button>
-            <button 
+            <button
               className="btn btn-primary"
               onClick={handleSaveQuestion}
             >
@@ -358,13 +414,26 @@ export default function CreateExercisePage() {
       )}
 
       {questions.length > 0 && step === 'type' && (
-        <div className="flex justify-end gap-2 mt-8">
-          <button 
-            className="btn btn-primary"
-            onClick={handleCompleteExercise}
-          >
-            Hoàn thành
-          </button>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 mt-8">
+            <label htmlFor="due-date" className="font-medium">Ngày nộp bài:</label>
+            <input
+              type="date"
+              id="due-date"
+              className="input input-bordered w-40"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 mt-8">
+            <button
+              className="btn btn-primary"
+              onClick={handleCompleteExercise}
+            >
+              Hoàn thành
+            </button>
+          </div>
         </div>
       )}
     </div>

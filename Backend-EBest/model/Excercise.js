@@ -2,6 +2,7 @@ const { pool } = require('../config/db');
 
 const ExcerciseModel = {
     createExercise: async (exercise) => {
+        console.log('Dữ liệu ở model bài tập:', exercise);
         const connection = await pool.promise().getConnection();
     
         try {
@@ -9,16 +10,16 @@ const ExcerciseModel = {
             await connection.beginTransaction();
     
             // Bước 1: Thêm bài học mới vào bảng baihoc
-            const baihocQuery = 'INSERT INTO baihoc (idChuong, tenBaiHoc, moTa) VALUES (?, ?, ?)';
-            const [baihocResult] = await connection.query(baihocQuery, [exercise.idChuong, exercise.name, '']);
+            const baihocQuery = 'INSERT INTO baihoc (idChuong, tenBaiHoc, moTa, ngayNopBai) VALUES (?, ?, ?, ?)';
+            const [baihocResult] = await connection.query(baihocQuery, [exercise.idChuong, exercise.name, '', exercise.ngayNopBai]);
             const idBaiHoc = baihocResult.insertId;
     
             // Bước 2: Thêm câu hỏi vào bảng cauhoi
-            const cauhoiQuery = 'INSERT INTO cauhoi (idBaiHoc, tenCauHoi, luaChon, dapAnDung) VALUES (?, ?, ?, ?)';
+            const cauhoiQuery = 'INSERT INTO cauhoi (idBaiHoc, tenCauHoi, luaChon, dapAnDung, diem) VALUES (?, ?, ?, ?, ?)';
             for (const question of exercise.questions) {
                 const luaChon = JSON.stringify(question.options);
                 const dapAnDung = question.options[question.correctOption];
-                await connection.query(cauhoiQuery, [idBaiHoc, question.content, luaChon, dapAnDung]);
+                await connection.query(cauhoiQuery, [idBaiHoc, question.content, luaChon, dapAnDung, question.points]);
             }
     
             // Commit transaction

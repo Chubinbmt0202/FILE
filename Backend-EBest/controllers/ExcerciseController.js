@@ -1,12 +1,13 @@
-const ExcerciseModel = require('../model/excercise');
+const ExcerciseModel = require('../model/Excercise');
 
 const createExcerciseController = async (req, res) => {
-    const { name, idKhoaHoc, idLop, questions } = req.body;
-    console.log('Dữ liệ ở controller bài tập:', req.body);
+    const { name, idKhoaHoc, idLop, questions, ngayNopBai } = req.body; // Thêm dueDate
+    console.log('Dữ liệu ở controller bài tập:', req.body);
     const exercise = {
         name,
         idChuong: idLop,  // Giả sử idChuong là idLop, bạn cần thay đổi theo dữ liệu thực tế hoặc logic của bạn
-        questions
+        questions,
+        ngayNopBai // Thêm dueDate vào đối tượng exercise
     };
 
     try {
